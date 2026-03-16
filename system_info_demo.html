@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Info Tool — Konan Achille Yao</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0b0e13;
+    --surface: #111520;
+    --border:  #1c2133;
+    --text:    #cdd6f4;
+    --muted:   #6c7086;
+    --cyan:    #89dceb;
+    --green:   #a6e3a1;
+    --yellow:  #f9e2af;
+    --red:     #f38ba8;
+    --blue:    #89b4fa;
+    --mono:    'JetBrains Mono', monospace;
+    --sans:    'Syne', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    padding: 2rem 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(137,220,235,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(137,220,235,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  .container { width: 100%; max-width: 700px; }
+
+  /* header */
+  .header {
+    margin-bottom: 1.5rem;
+    animation: fadeUp .4s ease both;
+  }
+  .header h1 {
+    font-family: var(--sans);
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--cyan);
+    letter-spacing: .05em;
+    margin-bottom: .2rem;
+  }
+  .header p { font-size: .72rem; color: var(--muted); letter-spacing: .08em; }
+
+  /* run button */
+  .run-btn {
+    display: flex; align-items: center; gap: .6rem;
+    background: none;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: .82rem;
+    padding: .6rem 1.2rem;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: .08em;
+    margin-bottom: 1.5rem;
+    transition: background .2s, color .2s;
+    animation: fadeUp .4s .1s ease both;
+  }
+  .run-btn:hover { background: var(--cyan); color: var(--bg); }
+  .run-btn .spinner { display: none; }
+  .run-btn.loading .spinner { display: inline; animation: spin .8s linear infinite; }
+  .run-btn.loading .label { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* cards grid */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .8rem;
+  }
+  @media (max-width: 540px) { .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    animation: fadeUp .4s ease both;
+    opacity: 0;
+  }
+  .card.visible { opacity: 1; }
+
+  .card-header {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .6rem .9rem;
+    border-bottom: 1px solid var(--border);
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .1em;
+  }
+  .card-icon { font-size: .9rem; }
+
+  .card-body { padding: .8rem .9rem; }
+
+  .row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: .25rem 0;
+    border-bottom: 1px solid #1c2133;
+    font-size: .72rem;
+    gap: .5rem;
+  }
+  .row:last-child { border-bottom: none; }
+  .row .k { color: var(--muted); flex-shrink: 0; }
+  .row .v { color: var(--yellow); text-align: right; word-break: break-all; }
+
+  /* usage bar */
+  .usage-wrap { margin-top: .4rem; }
+  .usage-track {
+    height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; margin-top: .3rem;
+  }
+  .usage-fill {
+    height: 100%; border-radius: 99px;
+    transition: width .8s cubic-bezier(.4,0,.2,1);
+  }
+
+  /* save button */
+  .save-wrap {
+    margin-top: 1rem;
+    display: flex; gap: .6rem;
+    animation: fadeUp .4s ease both;
+    opacity: 0;
+  }
+  .save-wrap.visible { opacity: 1; }
+  .save-btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .72rem;
+    padding: .45rem .9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    letter-spacing: .06em;
+    transition: border-color .2s, color .2s;
+  }
+  .save-btn:hover { border-color: var(--green); color: var(--green); }
+
+  .footer {
+    margin-top: 1.5rem;
+    font-size: .65rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: .08em;
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>⚙ SYSTEM INFO TOOL</h1>
+    <p>// IT inventory & diagnostics — by Konan Achille Yao</p>
+  </div>
+
+  <button class="run-btn" id="runBtn" onclick="runScan()">
+    <span class="label">▶ &nbsp;Run System Scan</span>
+    <span class="spinner">↻</span>
+  </button>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="save-wrap" id="saveWrap">
+    <button class="save-btn" onclick="saveReport('txt')">⬇ Save as .txt</button>
+    <button class="save-btn" onclick="saveReport('json')">⬇ Save as .json</button>
+  </div>
+
+  <div class="footer" style="margin-top:1.5rem">
+    github.com/kyao1 &nbsp;·&nbsp; Python source: <a href="#">system_info.py</a>
+  </div>
+</div>
+
+<script>
+let reportData = null;
+
+function getNav() {
+  const ua = navigator.userAgent;
+  let os = "Unknown OS";
+  if (ua.includes("Win"))     os = "Windows";
+  else if (ua.includes("Mac")) os = "macOS";
+  else if (ua.includes("Linux")) os = "Linux";
+  else if (ua.includes("Android")) os = "Android";
+  else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS";
+
+  const cores = navigator.hardwareConcurrency || "N/A";
+  const mem   = navigator.deviceMemory ? navigator.deviceMemory + " GB (approx)" : "N/A";
+  const lang  = navigator.language;
+  const tz    = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const conn  = navigator.connection;
+
+  return { os, cores, mem, lang, tz, conn };
+}
+
+async function getPublicIP() {
+  try {
+    const r = await fetch("https://api.ipify.org?format=json");
+    const d = await r.json();
+    return d.ip;
+  } catch { return "Unavailable"; }
+}
+
+function usageColor(pct) {
+  const n = parseFloat(pct);
+  if (n < 50) return "var(--green)";
+  if (n < 80) return "var(--yellow)";
+  return "var(--red)";
+}
+
+function card(icon, title, rows, color, delay) {
+  const div = document.createElement("div");
+  div.className = "card";
+  div.style.animationDelay = delay + "s";
+  div.style.animationFillMode = "both";
+
+  let rowsHTML = rows.map(r => {
+    let val = `<span class="v">${r.v}</span>`;
+    let bar = "";
+    if (r.pct !== undefined) {
+      const c = usageColor(r.pct);
+      bar = `<div class="usage-wrap"><div class="usage-track"><div class="usage-fill" style="width:${r.pct}%;background:${c}"></div></div></div>`;
+      val = `<span class="v" style="color:${c}">${r.v}</span>`;
+    }
+    return `<div class="row"><span class="k">${r.k}</span>${val}</div>${bar}`;
+  }).join("");
+
+  div.innerHTML = `
+    <div class="card-header" style="color:${color}">
+      <span class="card-icon">${icon}</span> ${title}
+    </div>
+    <div class="card-body">${rowsHTML}</div>
+  `;
+
+  setTimeout(() => div.classList.add("visible"), 10);
+  return div;
+}
+
+async function runScan() {
+  const btn  = document.getElementById("runBtn");
+  const grid = document.getElementById("grid");
+  const sw   = document.getElementById("saveWrap");
+
+  btn.classList.add("loading");
+  grid.innerHTML = "";
+  sw.classList.remove("visible");
+
+  const nav = getNav();
+  const ip  = await getPublicIP();
+  const now = new Date();
+
+  const screen_info = `${window.screen.width}×${window.screen.height}`;
+  const dpr   = window.devicePixelRatio || 1;
+  const online = navigator.onLine ? "Online ✔" : "Offline ✘";
+
+  // Connection info
+  let connRows = [
+    { k: "Status",    v: online },
+    { k: "Public IP", v: ip },
+    { k: "Language",  v: nav.lang },
+    { k: "Timezone",  v: nav.tz },
+  ];
+  if (nav.conn) {
+    if (nav.conn.effectiveType) connRows.push({ k: "Network Type", v: nav.conn.effectiveType.toUpperCase() });
+    if (nav.conn.downlink)      connRows.push({ k: "Downlink",     v: nav.conn.downlink + " Mbps" });
+  }
+
+  reportData = {
+    timestamp: now.toLocaleString(),
+    os:        nav.os,
+    cores:     nav.cores,
+    memory:    nav.mem,
+    language:  nav.lang,
+    timezone:  nav.tz,
+    publicIP:  ip,
+    screen:    screen_info,
+    online:    navigator.onLine,
+  };
+
+  const cards = [
+    { icon: "🖥", title: "OPERATING SYSTEM", color: "var(--cyan)", delay: 0, rows: [
+      { k: "OS",           v: nav.os },
+      { k: "Hostname",     v: window.location.hostname || "localhost" },
+      { k: "Timezone",     v: nav.tz },
+      { k: "Timestamp",    v: now.toLocaleTimeString() },
+      { k: "Date",         v: now.toLocaleDateString() },
+    ]},
+    { icon: "⚡", title: "CPU", color: "var(--yellow)", delay: .08, rows: [
+      { k: "Logical Cores",    v: nav.cores + " threads" },
+      { k: "Architecture",     v: nav.os.includes("iOS") || nav.os.includes("Android") ? "ARM" : "x86/x64" },
+      { k: "Browser Engine",   v: getBrowserEngine() },
+      { k: "Platform",         v: navigator.platform || "N/A" },
+    ]},
+    { icon: "💾", title: "MEMORY", color: "var(--green)", delay: .16, rows: [
+      { k: "Device RAM",   v: nav.mem },
+      { k: "JS Heap Limit",v: getHeapLimit() },
+      { k: "Used JS Heap", v: getHeapUsed() },
+    ]},
+    { icon: "🌐", title: "NETWORK", color: "var(--blue)", delay: .24, rows: connRows },
+    { icon: "🖱", title: "DISPLAY", color: "var(--cyan)", delay: .32, rows: [
+      { k: "Resolution",   v: screen_info },
+      { k: "Color Depth",  v: window.screen.colorDepth + " bit" },
+      { k: "Pixel Ratio",  v: dpr + "x" },
+      { k: "Orientation",  v: screen.orientation ? screen.orientation.type : "N/A" },
+      { k: "Window Size",  v: `${window.innerWidth}×${window.innerHeight}` },
+    ]},
+    { icon: "🐍", title: "ENVIRONMENT", color: "var(--yellow)", delay: .40, rows: [
+      { k: "Language",     v: nav.lang },
+      { k: "Cookies",      v: navigator.cookieEnabled ? "Enabled" : "Disabled" },
+      { k: "Do Not Track", v: navigator.doNotTrack === "1" ? "Enabled" : "Disabled" },
+      { k: "Touch Points", v: navigator.maxTouchPoints || "0" },
+      { k: "User Agent",   v: ua_short() },
+    ]},
+  ];
+
+  cards.forEach(c => grid.appendChild(card(c.icon, c.title, c.rows, c.color, c.delay)));
+
+  btn.classList.remove("loading");
+  setTimeout(() => sw.classList.add("visible"), 600);
+}
+
+function getBrowserEngine() {
+  const ua = navigator.userAgent;
+  if (ua.includes("Firefox")) return "Gecko (Firefox)";
+  if (ua.includes("Edg"))     return "Blink (Edge)";
+  if (ua.includes("Chrome"))  return "Blink (Chrome)";
+  if (ua.includes("Safari"))  return "WebKit (Safari)";
+  return "Unknown";
+}
+
+function getHeapLimit() {
+  try {
+    const m = performance.memory;
+    return m ? (m.jsHeapSizeLimit / 1048576).toFixed(0) + " MB" : "N/A";
+  } catch { return "N/A"; }
+}
+
+function getHeapUsed() {
+  try {
+    const m = performance.memory;
+    return m ? (m.usedJSHeapSize / 1048576).toFixed(0) + " MB" : "N/A";
+  } catch { return "N/A"; }
+}
+
+function ua_short() {
+  const ua = navigator.userAgent;
+  const match = ua.match(/(Chrome|Firefox|Safari|Edg)\/[\d.]+/);
+  return match ? match[0] : ua.slice(0, 30) + "...";
+}
+
+function saveReport(fmt) {
+  if (!reportData) return;
+  const ts   = new Date().toISOString().replace(/[:.]/g, "-");
+  let content, mime, ext;
+
+  if (fmt === "json") {
+    content = JSON.stringify(reportData, null, 2);
+    mime = "application/json"; ext = "json";
+  } else {
+    content = `SYSTEM INFORMATION REPORT\nGenerated: ${reportData.timestamp}\nBy: Konan Achille Yao\n${"=".repeat(40)}\n\n`;
+    for (const [k, v] of Object.entries(reportData)) {
+      content += `${k.padEnd(20)} ${v}\n`;
+    }
+    mime = "text/plain"; ext = "txt";
+  }
+
+  const blob = new Blob([content], { type: mime });
+  const a    = document.createElement("a");
+  a.href     = URL.createObjectURL(blob);
+  a.download = `sysinfo_${ts}.${ext}`;
+  a.click();
+}
+</script>
+</body>
+</html>
